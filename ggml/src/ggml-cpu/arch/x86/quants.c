@@ -1030,6 +1030,7 @@ void ggml_vec_dot_q8_0_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const voi
     __m256 acc = _mm256_setzero_ps();
 
     // Main loop
+    #pragma omp parrel for reduction(+:sumf)
     for (; ib < nb; ++ib) {
         // Compute combined scale for the block
         const __m256 d = _mm256_set1_ps(GGML_CPU_FP16_TO_FP32(x[ib].d) * GGML_CPU_FP16_TO_FP32(y[ib].d));
