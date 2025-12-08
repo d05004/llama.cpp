@@ -1138,7 +1138,6 @@ void ggml_vec_dot_q8_0_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const voi
 
         int j = 0;
 
-        // 4-way 수동 언롤
         for (; j < qk; j += 4) {
             sumi += (int)qx[j+0] * (int)qy[j+0];
             sumi += (int)qx[j+1] * (int)qy[j+1];
