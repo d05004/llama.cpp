@@ -1080,8 +1080,10 @@ void ggml_vec_dot_q5_1_q8_1(int n, float * GGML_RESTRICT s, size_t bs, const voi
 // }
 
 void ggml_vec_dot_q8_0_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
-    const int qk = QK8_0;
-    const int nb = n / qk;
+    // const int qk = QK8_0;
+    // const int nb = n / qk;
+    int qk=256;
+    int nb=256;
 
     assert(n % qk == 0);
     assert(nrc == 1);
@@ -1093,13 +1095,37 @@ void ggml_vec_dot_q8_0_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const voi
     const block_q8_0 * GGML_RESTRICT x = vx;
     const block_q8_0 * GGML_RESTRICT y = vy;
 
-    // int ib = 0;
+    int ib = 0;
     float sumf = 0;
 
+    for (; ib < nb; ++ib) {
+        int sumi = 0;
+
+        for (int j = 0; j < qk; j++) {
+            sumi += x[ib].qs[j]*y[ib].qs[j];
+        }
+
+        sumf += sumi*(GGML_CPU_FP16_TO_FP32(x[ib].d)*GGML_CPU_FP16_TO_FP32(y[ib].d));
+    }
+    
+    //v1
+    // #pragma omp parallel for reduction(+:sumf)
+    // for (int ib=0; ib < nb; ++ib) {
+    //     int sumi = 0;
+
+    //     for (int j = 0; j < qk; j++) {
+    //         sumi += x[ib].qs[j]*y[ib].qs[j];
+    //     }
+
+    //     sumf += sumi*(GGML_CPU_FP16_TO_FP32(x[ib].d)*GGML_CPU_FP16_TO_FP32(y[ib].d));
+    // }
+
+    //v2
     #pragma omp parallel for reduction(+:sumf)
     for (int ib=0; ib < nb; ++ib) {
         int sumi = 0;
-
+        
+        #pragma omp for reduction()
         for (int j = 0; j < qk; j++) {
             sumi += x[ib].qs[j]*y[ib].qs[j];
         }
