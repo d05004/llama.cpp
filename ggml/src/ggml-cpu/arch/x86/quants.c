@@ -1098,15 +1098,15 @@ void ggml_vec_dot_q8_0_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const voi
     int ib = 0;
     float sumf = 0;
 
-    for (; ib < nb; ++ib) {
-        int sumi = 0;
+    // for (; ib < nb; ++ib) {
+    //     int sumi = 0;
 
-        for (int j = 0; j < qk; j++) {
-            sumi += x[ib].qs[j]*y[ib].qs[j];
-        }
+    //     for (int j = 0; j < qk; j++) {
+    //         sumi += x[ib].qs[j]*y[ib].qs[j];
+    //     }
 
-        sumf += sumi*(GGML_CPU_FP16_TO_FP32(x[ib].d)*GGML_CPU_FP16_TO_FP32(y[ib].d));
-    }
+    //     sumf += sumi*(GGML_CPU_FP16_TO_FP32(x[ib].d)*GGML_CPU_FP16_TO_FP32(y[ib].d));
+    // }
     
     //v1
     // #pragma omp parallel for reduction(+:sumf)
@@ -1120,18 +1120,35 @@ void ggml_vec_dot_q8_0_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const voi
     //     sumf += sumi*(GGML_CPU_FP16_TO_FP32(x[ib].d)*GGML_CPU_FP16_TO_FP32(y[ib].d));
     // }
 
+
     //v2
-    #pragma omp parallel for reduction(+:sumf)
-    for (int ib=0; ib < nb; ++ib) {
+    #pragma omp parallel for reduction(+:sumf) schedule(static)
+    for (int ib = 0; ib < nb; ++ib) {
+        const block_q8_0 *bx = &x[ib];
+        const block_q8_0 *by = &y[ib];
+
+        const float d =
+            GGML_CPU_FP16_TO_FP32(bx->d) *
+            GGML_CPU_FP16_TO_FP32(by->d);
+
+        const int8_t *qx = bx->qs;
+        const int8_t *qy = by->qs;
+
         int sumi = 0;
-        
-        #pragma omp for reduction()
-        for (int j = 0; j < qk; j++) {
-            sumi += x[ib].qs[j]*y[ib].qs[j];
+
+        int j = 0;
+
+        // 4-way 수동 언롤
+        for (; j < qk; j += 4) {
+            sumi += (int)qx[j+0] * (int)qy[j+0];
+            sumi += (int)qx[j+1] * (int)qy[j+1];
+            sumi += (int)qx[j+2] * (int)qy[j+2];
+            sumi += (int)qx[j+3] * (int)qy[j+3];
         }
 
-        sumf += sumi*(GGML_CPU_FP16_TO_FP32(x[ib].d)*GGML_CPU_FP16_TO_FP32(y[ib].d));
+        sumf += (float)sumi * d;
     }
+
 
     *s = sumf;
 }
