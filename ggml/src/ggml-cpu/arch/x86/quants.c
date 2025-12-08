@@ -1093,11 +1093,11 @@ void ggml_vec_dot_q8_0_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const voi
     const block_q8_0 * GGML_RESTRICT x = vx;
     const block_q8_0 * GGML_RESTRICT y = vy;
 
-    int ib = 0;
+    // int ib = 0;
     float sumf = 0;
 
-
-    for (; ib < nb; ++ib) {
+    #pragma omp parallel for reduction(+:sumf)
+    for (int ib=0; ib < nb; ++ib) {
         int sumi = 0;
 
         for (int j = 0; j < qk; j++) {
